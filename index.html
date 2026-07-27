@@ -224,7 +224,6 @@
   <div class="toolbar">
     <button class="btn primary" onclick="window.print()">Print fridge sheet</button>
   </div>
-  <button class="reset" onclick="resetAll()">Reset all saved history</button>
 
   <footer>Built for Lincoln · Update sets/reps every few months as he grows
     <div class="syncNote" id="syncNote"></div>
@@ -512,16 +511,6 @@ function renderPrint(){
   document.getElementById('printBody').innerHTML = rows.map(r=>
     r[1]==='' ? `<tr><td colspan="9" style="font-weight:bold;background:#eee">${r[0]}</td></tr>`
     : `<tr><td>${r[0]}</td><td>${r[1]}</td>${'<td></td>'.repeat(7)}</tr>`).join('');
-}
-
-async function resetAll(){
-  if(!confirm('Delete all saved history? This cannot be undone.')) return;
-  try{
-    const r = await window.storage.list('log:');
-    if(r && r.keys) for(const k of r.keys){ try{ await window.storage.delete(k); }catch(e){} }
-  }catch(e){ console.error(e); }
-  state = {mode:null, status:null, done:[], pc:null};
-  render(); renderHistory();
 }
 
 // ---- Parent view (?parent=1): read-only full history from Supabase ----
