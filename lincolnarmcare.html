@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lincoln's Arm Care</title>
+<link href="https://fonts.googleapis.com/css2?family=Graduate&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FAFAF7; --ink:#1B2A4A; --stitch:#C8102E;
+    --go:#2E6B34; --caution:#D98E1F; --stop:#B5271D;
+    --line:#D8D5CC; --muted:#6B7280;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--paper); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    font-size:16px; line-height:1.45; padding-bottom:60px;}
+  .wrap{max-width:560px; margin:0 auto; padding:16px;}
+
+  header{text-align:center; padding:18px 0 10px;}
+  h1{font-family:'Graduate',Georgia,serif; font-size:1.55rem; letter-spacing:.04em;}
+  .sub{color:var(--muted); font-size:.85rem; margin-top:2px;}
+  .streak{display:inline-block; margin-top:10px; font-family:'Graduate',Georgia,serif;
+    font-size:.95rem; padding:4px 14px; border:2px solid var(--ink); border-radius:999px;}
+
+  .stitch{border:none; border-top:3px dashed var(--stitch); margin:18px 0; opacity:.75;}
+
+  .card{background:#fff; border:2px solid var(--ink); border-radius:14px; padding:16px;}
+  .card h2{font-family:'Graduate',Georgia,serif; font-size:1rem; margin-bottom:4px;}
+  .card p.hint{font-size:.85rem; color:var(--muted); margin-bottom:12px;}
+
+  .modes{display:flex; gap:8px;}
+  .mode{flex:1; border:2px solid var(--line); border-radius:12px; padding:12px 6px;
+    background:#fff; cursor:pointer; font-size:.8rem; font-weight:600; color:var(--ink); transition:all .15s;}
+  .mode .ico{display:block; font-size:1.3rem; margin-bottom:4px;}
+  .mode.sel{border-color:var(--ink); background:#EEF1F7;}
+
+  .pcRow{margin-top:12px; display:none; align-items:center; gap:8px;}
+  .pcRow.show{display:flex;}
+  .pcRow label{font-size:.85rem; font-weight:600;}
+  .pcRow input{width:80px; padding:8px; font-size:1rem; border:2px solid var(--line); border-radius:8px;}
+  .restCalc{margin-top:10px; font-size:.85rem; background:#EEF1F7; border-radius:8px; padding:10px; display:none;}
+  .restCalc.warn{background:#F9E9E7; border:1.5px solid var(--stop);}
+  .restCalc strong{display:block;}
+
+  .lights{display:flex; gap:10px; margin-top:4px;}
+  .light{flex:1; border:2px solid var(--line); border-radius:12px; padding:12px 6px;
+    background:#fff; cursor:pointer; font-size:.82rem; font-weight:600; color:var(--ink); transition:all .15s;}
+  .light .dot{display:block; width:26px; height:26px; border-radius:50%; margin:0 auto 6px;}
+  .light.g .dot{background:var(--go);} .light.y .dot{background:var(--caution);} .light.r .dot{background:var(--stop);}
+  .light.sel-g{border-color:var(--go); background:#EAF4EB;}
+  .light.sel-y{border-color:var(--caution); background:#FBF2E1;}
+  .light.sel-r{border-color:var(--stop); background:#F9E9E7;}
+
+  .banner{border-radius:12px; padding:14px; margin-top:14px; font-size:.92rem; display:none;}
+  .banner.rest{background:#F9E9E7; border:2px solid var(--stop);}
+  .banner.easy{background:#FBF2E1; border:2px solid var(--caution);}
+  .banner strong{display:block; font-family:'Graduate',Georgia,serif; margin-bottom:4px; font-size:.95rem;}
+
+  .planLabel{margin-top:20px; text-align:center; font-size:.8rem; color:var(--muted);
+    text-transform:uppercase; letter-spacing:.08em; display:none;}
+
+  .section{margin-top:18px;}
+  .section h3{font-family:'Graduate',Georgia,serif; font-size:.95rem; letter-spacing:.03em;
+    display:flex; align-items:center; gap:8px; margin-bottom:10px;}
+  .section h3 .tag{font-size:.7rem; font-weight:400; color:var(--muted); letter-spacing:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}
+  .ex{display:flex; align-items:flex-start; gap:12px; background:#fff; border:1.5px solid var(--line);
+    border-radius:12px; padding:12px; margin-bottom:8px; transition:all .15s;}
+  .ex.done{border-color:var(--go); background:#EAF4EB;}
+  .ex input[type=checkbox]{width:24px; height:24px; margin-top:2px; accent-color:var(--go); flex-shrink:0;}
+  .ex .name{font-weight:600; font-size:.95rem;}
+  .ex .dose{font-size:.85rem; color:var(--muted);}
+  .ex a{font-size:.82rem; color:var(--stitch); font-weight:600; text-decoration:none;}
+  .ex a::before{content:"▶ ";}
+
+  .progressbar{height:10px; background:#E7E4DB; border-radius:999px; margin-top:16px; overflow:hidden;}
+  .progressbar div{height:100%; background:var(--go); width:0%; transition:width .3s; border-radius:999px;}
+  .allDone{display:none; text-align:center; margin-top:14px; font-family:'Graduate',Georgia,serif;
+    color:var(--go); font-size:1.05rem;}
+
+  .hist{margin-top:8px;}
+  .histRow{display:flex; gap:6px; flex-wrap:wrap;}
+  .day{width:30px; text-align:center;}
+  .day .cell{width:26px; height:26px; border-radius:6px; background:#E7E4DB; margin:0 auto;
+    font-size:.62rem; color:#fff; line-height:26px; font-weight:700;}
+  .day .cell.g{background:var(--go);} .day .cell.y{background:var(--caution);}
+  .day .cell.r{background:var(--stop);} .day .cell.p{background:#9DBD9F;}
+  .day .lbl{font-size:.6rem; color:var(--muted); margin-top:3px;}
+  .legend{font-size:.72rem; color:var(--muted); margin-top:8px;}
+  .legend span{display:inline-block; width:10px; height:10px; border-radius:3px; vertical-align:middle; margin:0 3px 0 8px;}
+
+  .rules{background:#fff; border:1.5px solid var(--line); border-radius:12px; padding:14px; font-size:.85rem;}
+  .rules li{margin:6px 0 6px 18px;}
+
+  .toolbar{display:flex; gap:10px; margin-top:22px;}
+  .btn{flex:1; padding:11px; border-radius:10px; border:2px solid var(--ink); background:#fff;
+    font-weight:700; font-size:.85rem; color:var(--ink); cursor:pointer;}
+  .btn.primary{background:var(--ink); color:#fff;}
+  .reset{display:block; margin:26px auto 0; background:none; border:none; color:var(--muted);
+    font-size:.72rem; text-decoration:underline; cursor:pointer;}
+  footer{margin-top:26px; text-align:center; font-size:.72rem; color:var(--muted);}
+
+  .printOnly{display:none;}
+  @media print{
+    body *{visibility:hidden;}
+    .printOnly, .printOnly *{visibility:visible;}
+    .printOnly{display:block; position:absolute; top:0; left:0; width:100%; padding:20px; color:#000;}
+    .printOnly h1{font-size:20px; margin-bottom:4px;}
+    .printOnly table{width:100%; border-collapse:collapse; font-size:11px; margin-top:10px;}
+    .printOnly th,.printOnly td{border:1px solid #333; padding:5px; text-align:left;}
+    .printOnly .chk{width:26px;}
+    .printOnly .rulesP{font-size:11px; margin-top:12px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+  <header>
+    <h1>LINCOLN'S ARM CARE</h1>
+    <div class="sub" id="todayLabel"></div>
+    <div class="streak" id="streak">Streak: —</div>
+  </header>
+
+  <hr class="stitch">
+
+  <!-- STEP 1: DAY TYPE (parent sets) -->
+  <div class="card">
+    <h2>STEP 1 — WHAT KIND OF DAY?</h2>
+    <p class="hint">Dad sets this. It decides today's routine.</p>
+    <div class="modes">
+      <button class="mode" id="modeP" onclick="setMode('p')"><span class="ico">⚾</span>Pitched today</button>
+      <button class="mode" id="modeT" onclick="setMode('t')"><span class="ico">🧢</span>Threw (practice / lesson)</button>
+      <button class="mode" id="modeO" onclick="setMode('o')"><span class="ico">🏠</span>No throwing</button>
+    </div>
+    <div class="pcRow" id="pcRow">
+      <label for="pc">Pitch count:</label>
+      <input type="number" id="pc" min="0" max="150" inputmode="numeric" onchange="setPC()" onkeyup="setPC()">
+    </div>
+    <div class="restCalc" id="restCalc"></div>
+  </div>
+
+  <!-- STEP 2: ARM CHECK -->
+  <div class="card" style="margin-top:14px">
+    <h2>STEP 2 — ARM CHECK</h2>
+    <p class="hint">Lincoln answers. Be honest — this is what the pros do.</p>
+    <div class="lights">
+      <button class="light g" id="btnG" onclick="setStatus('g')"><span class="dot"></span>Feels great</button>
+      <button class="light y" id="btnY" onclick="setStatus('y')"><span class="dot"></span>Tired / a little sore</button>
+      <button class="light r" id="btnR" onclick="setStatus('r')"><span class="dot"></span>Elbow or shoulder hurts</button>
+    </div>
+    <div class="banner rest" id="restBanner">
+      <strong>RED = REST DAY. GOOD CALL.</strong>
+      Telling the truth about pain is what pros do. No throwing and no arm exercises today — tell Dad right now.
+      No throwing again until 100% pain-free. If it still hurts after 2–3 days of rest, time to see a doctor.
+    </div>
+    <div class="banner easy" id="easyBanner">
+      <strong>YELLOW = MOBILITY ONLY TODAY</strong>
+      Do the mobility section, skip everything else, and tell Dad your arm felt tired.
+    </div>
+  </div>
+
+  <!-- STEP 3: ROUTINE -->
+  <div class="planLabel" id="planLabel"></div>
+  <div id="routine">
+    <div class="section" id="sec-mob">
+      <h3>MOBILITY <span class="tag">~5 min</span></h3>
+      <div id="mobList"></div>
+    </div>
+    <div class="section" id="sec-flush">
+      <h3>RECOVERY FLUSH <span class="tag">very light band · easy pace</span></h3>
+      <div id="flushList"></div>
+    </div>
+    <div class="section" id="sec-arm">
+      <h3>ARM STRENGTH <span class="tag">light band · ~5 min</span></h3>
+      <div id="armList"></div>
+    </div>
+    <div class="section" id="sec-body">
+      <h3>BODY STRENGTH <span class="tag">bodyweight · ~6 min</span></h3>
+      <div id="bodyList"></div>
+    </div>
+    <div class="progressbar"><div id="bar"></div></div>
+    <div class="allDone" id="allDone">ROUTINE COMPLETE — GREAT WORK ⚾</div>
+  </div>
+
+  <hr class="stitch">
+
+  <div class="section hist">
+    <h3>LAST 14 DAYS</h3>
+    <div class="histRow" id="histRow"></div>
+    <div class="legend">
+      <span style="background:var(--go)"></span>Full
+      <span style="background:#9DBD9F"></span>Partial
+      <span style="background:var(--caution)"></span>Mobility only
+      <span style="background:var(--stop)"></span>Rest (sore)
+      <span style="background:#E7E4DB"></span>No check-in
+      &nbsp;·&nbsp; number = pitches that day
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>HOUSE RULES</h3>
+    <div class="rules">
+      <ul>
+        <li><b>Never throw with a sore or tired arm.</b> Pain in the elbow or shoulder = automatic rest until it's 100% gone.</li>
+        <li>Age 10 limit: <b>75 pitches max per day</b>. Rest days after pitching: 21–35 = 1 day · 36–50 = 2 · 51–65 = 3 · 66+ = 4.</li>
+        <li>All throwing counts: games, lessons, bullpens, backyard.</li>
+        <li>Bands stay <b>light</b> — smooth and slow, never straining.</li>
+        <li>2–3 months per year with zero overhead throwing.</li>
+        <li>No pitching and catching in the same day.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <button class="btn primary" onclick="window.print()">Print fridge sheet</button>
+  </div>
+  <button class="reset" onclick="resetAll()">Reset all saved history</button>
+
+  <footer>Built for Lincoln · Update sets/reps every few months as he grows</footer>
+</div>
+
+<!-- ===== PRINT SHEET ===== -->
+<div class="printOnly">
+  <h1>LINCOLN'S ARM CARE — WEEKLY SHEET</h1>
+  <div>Every day: Dad sets day type → Lincoln does arm check → routine. Sore elbow/shoulder = REST, no throwing until pain-free.</div>
+  <div style="margin-top:6px"><b>Day types:</b> PITCHED = Mobility + Recovery Flush · THREW = Mobility + Arm Strength · NO THROWING = everything</div>
+  <table id="printTable">
+    <thead><tr><th>Exercise</th><th>Sets / Reps</th>
+      <th class="chk">M</th><th class="chk">T</th><th class="chk">W</th><th class="chk">Th</th>
+      <th class="chk">F</th><th class="chk">Sa</th><th class="chk">Su</th></tr></thead>
+    <tbody id="printBody"></tbody>
+  </table>
+  <div class="rulesP">
+    Rules: 75 pitches/day max (age 10). Rest days after pitching: 21–35 = 1 · 36–50 = 2 · 51–65 = 3 · 66+ = 4.
+    Lessons and bullpens count. No pitch + catch same day. 2–3 months/year of no overhead throwing.
+  </div>
+</div>
+
+<script>
+// Storage shim: inside Claude, window.storage exists and is used.
+// On a normal web host (GitHub Pages etc.) it doesn't, so we fall back
+// to the browser's own localStorage with the same async interface.
+if(!window.storage){
+  window.storage = {
+    async get(k){ const v = localStorage.getItem('la:'+k);
+      if(v===null) throw new Error('key not found'); return {key:k, value:v}; },
+    async set(k,v){ localStorage.setItem('la:'+k, v); return {key:k, value:v}; },
+    async delete(k){ localStorage.removeItem('la:'+k); return {key:k, deleted:true}; },
+    async list(prefix){ const keys=[];
+      for(let i=0;i<localStorage.length;i++){ const key=localStorage.key(i);
+        if(key && key.startsWith('la:'+(prefix||''))) keys.push(key.slice(3)); }
+      return {keys}; }
+  };
+}
+const EX = {
+  mob: [
+    {id:'circ', name:'Arm circles (Jaeger warm-up)', dose:'Small → big, palms down then up, ~20 sec each', url:'https://www.youtube.com/watch?v=R44bX9DiDHg'},
+    {id:'wall', name:'Wall slides', dose:'10 slow reps, lower back stays on the wall', url:'https://www.youtube.com/watch?v=UB_n4DxOTCo'},
+    {id:'book', name:'Open books (T-spine rotation)', dose:'8 per side, slow, follow your hand with your eyes', url:'https://www.youtube.com/watch?v=rDviWORCWEw'},
+    {id:'hips', name:'90/90 hip switches', dose:'10 switches, hands off the floor if you can', url:'https://www.youtube.com/watch?v=qq_Z7sAmVrA'}
+  ],
+  flush: [
+    {id:'fer', name:'Easy band external rotation', dose:'10 per arm, lightest band, half effort — just get blood moving', url:'https://www.youtube.com/watch?v=_UvmPNGtlPM'},
+    {id:'fwring', name:'Forearm towel wrings', dose:'Gentle, 30 sec each direction', url:''}
+  ],
+  arm: [
+    {id:'er', name:'Band external rotation', dose:'12 per arm, elbow glued to your side, light band', url:'https://www.youtube.com/watch?v=_UvmPNGtlPM'},
+    {id:'ytw', name:'Prone Y-T-W', dose:'6 of each letter, squeeze shoulder blades, 2-sec hold', url:'https://www.youtube.com/watch?v=CFt3WjCBbpc'},
+    {id:'row', name:'Band row', dose:'12 reps, pull to your ribs, squeeze the back', url:'https://www.youtube.com/watch?v=LSkyinhmA8k'},
+    {id:'wring', name:'Forearm towel wrings', dose:'Wring a rolled towel hard both directions, 45 sec', url:''}
+  ],
+  body: [
+    {id:'dbug', name:'Dead bug', dose:'8 per side, lower back pressed into the floor', url:'https://www.youtube.com/watch?v=g_BYB0R-4Ws'},
+    {id:'glute', name:'Glute bridge', dose:'12 reps with a 3-sec squeeze at the top', url:'https://www.youtube.com/watch?v=8bbE64NuDTU'},
+    {id:'split', name:'Split squat', dose:'8 per leg, slow down, controlled up', url:'https://www.youtube.com/watch?v=hfrCPMWNsR8'}
+  ]
+};
+
+// Which sections run for each day type (when arm check is green)
+const PLANS = {
+  p: {label:'PITCHED TODAY → RECOVERY ROUTINE', secs:['mob','flush']},
+  t: {label:'THREW TODAY → STANDARD ROUTINE', secs:['mob','arm']},
+  o: {label:'NO-THROW DAY → FULL ROUTINE', secs:['mob','arm','body']}
+};
+// Pitch Smart rest days, ages 9–10
+function restDays(pc){
+  if(pc>=66) return 4; if(pc>=51) return 3; if(pc>=36) return 2; if(pc>=21) return 1; return 0;
+}
+
+let state = {mode:null, status:null, done:[], pc:null};
+
+const keyFor = d => 'log:'+d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const todayKey = ()=>keyFor(new Date());
+
+function activeSections(){
+  if(!state.mode || !state.status || state.status==='r') return [];
+  if(state.status==='y') return ['mob'];
+  return PLANS[state.mode].secs;
+}
+function activeIds(){
+  return activeSections().flatMap(s=>EX[s].map(e=>e.id));
+}
+
+function render(){
+  // mode buttons
+  ['P','T','O'].forEach(L=>document.getElementById('mode'+L).classList.remove('sel'));
+  if(state.mode==='p') document.getElementById('modeP').classList.add('sel');
+  if(state.mode==='t') document.getElementById('modeT').classList.add('sel');
+  if(state.mode==='o') document.getElementById('modeO').classList.add('sel');
+  // pitch count row
+  document.getElementById('pcRow').classList.toggle('show', state.mode==='p');
+  if(state.mode==='p' && state.pc!=null) document.getElementById('pc').value = state.pc;
+  renderRestCalc();
+  // lights
+  ['G','Y','R'].forEach(L=>document.getElementById('btn'+L).classList.remove('sel-g','sel-y','sel-r'));
+  if(state.status==='g') document.getElementById('btnG').classList.add('sel-g');
+  if(state.status==='y') document.getElementById('btnY').classList.add('sel-y');
+  if(state.status==='r') document.getElementById('btnR').classList.add('sel-r');
+  document.getElementById('restBanner').style.display = state.status==='r'?'block':'none';
+  document.getElementById('easyBanner').style.display = state.status==='y'?'block':'none';
+  // plan label
+  const pl = document.getElementById('planLabel');
+  if(state.mode && state.status && state.status!=='r'){
+    pl.style.display='block';
+    pl.textContent = state.status==='y' ? 'YELLOW DAY → MOBILITY ONLY' : PLANS[state.mode].label;
+  } else pl.style.display='none';
+  // sections
+  const secs = activeSections();
+  ['mob','flush','arm','body'].forEach(s=>{
+    document.getElementById('sec-'+s).style.display = secs.includes(s)?'block':'none';
+  });
+  document.getElementById('routine').style.display = secs.length?'block':'none';
+  // exercise lists
+  const make = (list, mount)=>{
+    document.getElementById(mount).innerHTML = list.map(e=>`
+      <label class="ex ${state.done.includes(e.id)?'done':''}" id="ex-${e.id}">
+        <input type="checkbox" ${state.done.includes(e.id)?'checked':''} onchange="toggle('${e.id}')">
+        <div>
+          <div class="name">${e.name}</div>
+          <div class="dose">${e.dose}</div>
+          ${e.url?`<a href="${e.url}" target="_blank" rel="noopener">Watch how</a>`:''}
+        </div>
+      </label>`).join('');
+  };
+  make(EX.mob,'mobList'); make(EX.flush,'flushList'); make(EX.arm,'armList'); make(EX.body,'bodyList');
+  updateBar();
+}
+
+function renderRestCalc(){
+  const el = document.getElementById('restCalc');
+  if(state.mode!=='p' || state.pc==null || state.pc===''){ el.style.display='none'; return; }
+  const pc = Number(state.pc);
+  el.style.display='block';
+  if(pc>75){
+    el.className='restCalc warn';
+    el.innerHTML = '<strong>⚠ Over the age-10 daily limit of 75.</strong> 4 full rest days minimum — and worth a conversation with the coach.';
+    return;
+  }
+  const rd = restDays(pc);
+  el.className='restCalc';
+  if(rd===0){ el.innerHTML = '<strong>0 required rest days</strong> (under 21 pitches). Still no pitching tomorrow if anything feels tired.'; }
+  else{
+    const next = new Date(); next.setDate(next.getDate()+rd+1);
+    el.innerHTML = '<strong>'+rd+' required rest day'+(rd>1?'s':'')+' from pitching.</strong> Earliest next pitching day: '+
+      next.toLocaleDateString('en-US',{weekday:'long', month:'short', day:'numeric'});
+  }
+}
+
+function updateBar(){
+  const target = activeIds();
+  const done = target.filter(id=>state.done.includes(id)).length;
+  const pct = target.length ? Math.round(done/target.length*100) : 0;
+  document.getElementById('bar').style.width = pct+'%';
+  document.getElementById('allDone').style.display = (pct===100 && target.length)?'block':'none';
+}
+
+async function save(){
+  try{
+    await window.storage.set(todayKey(), JSON.stringify({m:state.mode, s:state.status, d:state.done, pc:state.pc, ts:Date.now()}));
+  }catch(e){ console.error('save failed', e); }
+  renderHistory();
+}
+
+function setMode(m){ state.mode=m; if(m!=='p') state.pc=null; render(); save(); }
+function setPC(){ const v=document.getElementById('pc').value; state.pc = v===''?null:Number(v); renderRestCalc(); save(); }
+function setStatus(s){ state.status=s; if(s==='r') state.done=[]; render(); save(); }
+function toggle(id){
+  if(state.done.includes(id)) state.done = state.done.filter(x=>x!==id);
+  else state.done.push(id);
+  document.getElementById('ex-'+id).classList.toggle('done', state.done.includes(id));
+  updateBar(); save();
+}
+
+function dayClass(e){
+  if(!e || !e.s) return '';
+  if(e.s==='r') return 'r';
+  const mobIds = EX.mob.map(x=>x.id);
+  if(e.s==='y') return mobIds.every(id=>(e.d||[]).includes(id)) ? 'y' : 'p';
+  const plan = e.m && PLANS[e.m] ? PLANS[e.m].secs.flatMap(s=>EX[s].map(x=>x.id)) : mobIds;
+  return plan.every(id=>(e.d||[]).includes(id)) ? 'g' : 'p';
+}
+
+async function renderHistory(){
+  const row = document.getElementById('histRow');
+  const cells = [];
+  for(let i=13;i>=0;i--){
+    const d = new Date(); d.setDate(d.getDate()-i);
+    let entry = null;
+    try{
+      const r = await window.storage.get(keyFor(d));
+      if(r && r.value) entry = JSON.parse(r.value);
+    }catch(e){ /* no entry */ }
+    cells.push({d, entry});
+  }
+  let streak = 0;
+  for(let i=cells.length-1; i>=0; i--){
+    if(cells[i].entry) streak++;
+    else break;
+  }
+  document.getElementById('streak').textContent = 'Streak: '+streak+(streak===1?' day':' days');
+  row.innerHTML = cells.map(c=>`
+    <div class="day">
+      <div class="cell ${dayClass(c.entry)}">${c.entry && c.entry.pc!=null ? c.entry.pc : ''}</div>
+      <div class="lbl">${c.d.getMonth()+1}/${c.d.getDate()}</div>
+    </div>`).join('');
+}
+
+function renderPrint(){
+  const rows = [
+    ['— MOBILITY (every day) —',''], ...EX.mob.map(e=>[e.name,e.dose]),
+    ['— RECOVERY FLUSH (days he pitched) —',''], ...EX.flush.map(e=>[e.name,e.dose]),
+    ['— ARM STRENGTH (threw / no-throw days) —',''], ...EX.arm.map(e=>[e.name,e.dose]),
+    ['— BODY STRENGTH (no-throw days) —',''], ...EX.body.map(e=>[e.name,e.dose])
+  ];
+  document.getElementById('printBody').innerHTML = rows.map(r=>
+    r[1]==='' ? `<tr><td colspan="9" style="font-weight:bold;background:#eee">${r[0]}</td></tr>`
+    : `<tr><td>${r[0]}</td><td>${r[1]}</td>${'<td></td>'.repeat(7)}</tr>`).join('');
+}
+
+async function resetAll(){
+  if(!confirm('Delete all saved history? This cannot be undone.')) return;
+  try{
+    const r = await window.storage.list('log:');
+    if(r && r.keys) for(const k of r.keys){ try{ await window.storage.delete(k); }catch(e){} }
+  }catch(e){ console.error(e); }
+  state = {mode:null, status:null, done:[], pc:null};
+  render(); renderHistory();
+}
+
+(async function init(){
+  const d = new Date();
+  document.getElementById('todayLabel').textContent =
+    d.toLocaleDateString('en-US',{weekday:'long', month:'long', day:'numeric', year:'numeric'});
+  try{
+    const r = await window.storage.get(todayKey());
+    if(r && r.value){ const e = JSON.parse(r.value);
+      state.mode=e.m||null; state.status=e.s||null; state.done=e.d||[]; state.pc=(e.pc!=null?e.pc:null); }
+  }catch(e){ /* first check-in today */ }
+  render(); renderPrint(); renderHistory();
+})();
+</script>
+</body>
+</html>
