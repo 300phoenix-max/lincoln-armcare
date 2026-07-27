@@ -101,6 +101,15 @@
     font-size:.72rem; text-decoration:underline; cursor:pointer;}
   footer{margin-top:26px; text-align:center; font-size:.72rem; color:var(--muted);}
 
+  .syncNote{margin-top:6px; font-size:.7rem; color:var(--muted);}
+
+  .pvTable{width:100%; border-collapse:collapse; font-size:.85rem;}
+  .pvTable th{font-size:.68rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted);
+    text-align:left; padding:6px; border-bottom:2px solid var(--ink);}
+  .pvTable td{padding:8px 6px; border-bottom:1px solid var(--line); vertical-align:middle;}
+  .pvDot{display:inline-block; width:12px; height:12px; border-radius:50%; margin-right:5px; vertical-align:middle;}
+  .pvDot.g{background:var(--go);} .pvDot.y{background:var(--caution);} .pvDot.r{background:var(--stop);}
+
   .printOnly{display:none;}
   @media print{
     body *{visibility:hidden;}
@@ -217,7 +226,29 @@
   </div>
   <button class="reset" onclick="resetAll()">Reset all saved history</button>
 
-  <footer>Built for Lincoln · Update sets/reps every few months as he grows</footer>
+  <footer>Built for Lincoln · Update sets/reps every few months as he grows
+    <div class="syncNote" id="syncNote"></div>
+  </footer>
+</div>
+
+<!-- ===== PARENT VIEW (?parent=1) ===== -->
+<div class="wrap" id="parentView" style="display:none">
+  <header>
+    <h1>LINCOLN'S ARM CARE</h1>
+    <div class="sub">Parent view · full history · read-only</div>
+  </header>
+  <hr class="stitch">
+  <div class="card">
+    <h2>ALL CHECK-INS</h2>
+    <p class="hint" id="pvStatus">Loading from Supabase…</p>
+    <div style="overflow-x:auto">
+      <table class="pvTable" id="pvTable" style="display:none">
+        <thead><tr><th>Date</th><th>Day type</th><th>Arm</th><th>Pitches</th><th>Routine</th></tr></thead>
+        <tbody id="pvBody"></tbody>
+      </table>
+    </div>
+  </div>
+  <footer><a href="./" style="color:var(--stitch)">← Back to Lincoln's check-in view</a></footer>
 </div>
 
 <!-- ===== PRINT SHEET ===== -->
@@ -237,6 +268,7 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 // Storage shim: inside Claude, window.storage exists and is used.
 // On a normal web host (GitHub Pages etc.) it doesn't, so we fall back
@@ -253,6 +285,14 @@ if(!window.storage){
       return {keys}; }
   };
 }
+// ---- Supabase remote backup (localStorage stays the offline fallback) ----
+const SUPA_URL = 'https://tatqfggomfpkdnhredmr.supabase.co';
+const SUPA_KEY = 'sb_publishable_NKZrYQTaBXM_5kc6i-K8SQ_-vltWq-p';
+const supa = (window.supabase && window.supabase.createClient)
+  ? window.supabase.createClient(SUPA_URL, SUPA_KEY) : null;
+const M2DB = {p:'pitched', t:'threw', o:'none'},  DB2M = {pitched:'p', threw:'t', none:'o'};
+const S2DB = {g:'green', y:'yellow', r:'red'},    DB2S = {green:'g', yellow:'y', red:'r'};
+
 const EX = {
   mob: [
     {id:'circ', name:'Arm circles (Jaeger warm-up)', dose:'Small → big, palms down then up, ~20 sec each', url:'https://www.youtube.com/watch?v=R44bX9DiDHg'},
@@ -380,6 +420,42 @@ async function save(){
     await window.storage.set(todayKey(), JSON.stringify({m:state.mode, s:state.status, d:state.done, pc:state.pc, ts:Date.now()}));
   }catch(e){ console.error('save failed', e); }
   renderHistory();
+  syncSupabase();
+}
+
+// ---- Remote sync: upsert today's check-in (plus any days that failed while offline) ----
+async function pushDay(dateStr, e){
+  const {error} = await supa.from('daily_logs').upsert({
+    log_date: dateStr,
+    day_mode: e.m ? M2DB[e.m] : null,
+    arm_status: e.s ? S2DB[e.s] : null,
+    exercises_done: e.d || [],
+    pitch_count: (e.pc!=null && e.pc!=='') ? Number(e.pc) : null,
+    updated_at: new Date().toISOString()
+  }, {onConflict:'log_date'});
+  if(error) throw error;
+}
+
+async function getPending(){
+  try{ const r = await window.storage.get('unsynced'); return JSON.parse(r.value)||[]; }
+  catch(e){ return []; }
+}
+
+async function syncSupabase(){
+  const note = document.getElementById('syncNote');
+  if(!supa){ if(note) note.textContent='☁ Cloud sync unavailable (offline copy only)'; return; }
+  const todayStr = todayKey().slice(4);
+  const pending = new Set(await getPending());
+  if(state.mode || state.status || state.done.length || state.pc!=null) pending.add(todayStr);
+  const still = [];
+  for(const ds of pending){
+    let e = null;
+    try{ const r = await window.storage.get('log:'+ds); e = JSON.parse(r.value); }catch(err){}
+    if(!e) continue;
+    try{ await pushDay(ds, e); }catch(err){ console.warn('sync failed for', ds, err); still.push(ds); }
+  }
+  try{ await window.storage.set('unsynced', JSON.stringify(still)); }catch(e){}
+  if(note) note.textContent = still.length ? '☁ Offline — saved on this device, will sync later' : '☁ Synced to the cloud';
 }
 
 function setMode(m){ state.mode=m; if(m!=='p') state.pc=null; render(); save(); }
@@ -448,7 +524,52 @@ async function resetAll(){
   render(); renderHistory();
 }
 
+// ---- Parent view (?parent=1): read-only full history from Supabase ----
+function pctForRow(row){
+  const s = DB2S[row.arm_status] || null;
+  const m = DB2M[row.day_mode] || null;
+  if(!s) return '—';
+  if(s==='r') return 'Rest day';
+  const ids = s==='y'
+    ? EX.mob.map(x=>x.id)
+    : (m && PLANS[m] ? PLANS[m].secs.flatMap(sec=>EX[sec].map(x=>x.id)) : EX.mob.map(x=>x.id));
+  const done = Array.isArray(row.exercises_done) ? row.exercises_done : [];
+  const n = ids.filter(id=>done.includes(id)).length;
+  return Math.round(n/ids.length*100)+'%';
+}
+
+async function renderParent(){
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('parentView').style.display = 'block';
+  const status = document.getElementById('pvStatus');
+  if(!supa){ status.textContent = 'Could not load the Supabase client. Check your connection and refresh.'; return; }
+  try{
+    const {data, error} = await supa.from('daily_logs').select('*').order('log_date', {ascending:false});
+    if(error) throw error;
+    if(!data || !data.length){ status.textContent = 'No check-ins logged yet.'; return; }
+    const MODE_LBL = {pitched:'⚾ Pitched', threw:'🧢 Threw', none:'🏠 No throwing'};
+    const ARM_LBL  = {green:'<span class="pvDot g"></span>Great', yellow:'<span class="pvDot y"></span>Tired/sore', red:'<span class="pvDot r"></span>Hurt'};
+    document.getElementById('pvBody').innerHTML = data.map(r=>{
+      const [y,mo,dy] = r.log_date.split('-').map(Number);
+      const dt = new Date(y, mo-1, dy).toLocaleDateString('en-US',{weekday:'short', month:'numeric', day:'numeric'});
+      return `<tr>
+        <td>${dt}</td>
+        <td>${MODE_LBL[r.day_mode] || '—'}</td>
+        <td>${ARM_LBL[r.arm_status] || '—'}</td>
+        <td>${r.pitch_count!=null ? r.pitch_count : '—'}</td>
+        <td>${pctForRow(r)}</td>
+      </tr>`;
+    }).join('');
+    status.textContent = data.length + ' day' + (data.length===1?'':'s') + ' logged · newest first';
+    document.getElementById('pvTable').style.display = 'table';
+  }catch(e){
+    console.error(e);
+    status.textContent = 'Could not load history (offline?). Try again in a bit.';
+  }
+}
+
 (async function init(){
+  if(new URLSearchParams(location.search).get('parent')==='1'){ renderParent(); return; }
   const d = new Date();
   document.getElementById('todayLabel').textContent =
     d.toLocaleDateString('en-US',{weekday:'long', month:'long', day:'numeric', year:'numeric'});
@@ -458,6 +579,7 @@ async function resetAll(){
       state.mode=e.m||null; state.status=e.s||null; state.done=e.d||[]; state.pc=(e.pc!=null?e.pc:null); }
   }catch(e){ /* first check-in today */ }
   render(); renderPrint(); renderHistory();
+  syncSupabase();
 })();
 </script>
 </body>
